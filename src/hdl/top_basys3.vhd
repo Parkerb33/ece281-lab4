@@ -92,21 +92,70 @@ end top_basys3;
 architecture top_basys3_arch of top_basys3 is 
   
 	-- declare components and signals
-
-  
+component elevator is
+          port(
+            i_clk       : in std_logic;
+            i_up_down   : in std_logic;
+            i_stop      : in std_logic;
+            i_reset     : in std_logic;
+            o_floor     : out std_logic_vector (3 downto 0)
+          );
+        end component;
+        
+component sevenSegDecoder is
+          port(
+             i_D : in std_logic_vector (3 downto 0);
+             o_S : out std_logic_vector (6 downto 0)
+          );    
+        end component; 
+        
+component clock_divider is
+            generic ( constant k_DIV : natural := 2    ); -- How many clk cycles until slow clock toggles
+                                                       -- Effectively, you divide the clk double this 
+                                                       -- number (e.g., k_DIV := 2 --> clock divider of 4)
+            port (     i_clk    : in std_logic;
+                    i_reset  : in std_logic;           -- asynchronous
+                    o_clk    : out std_logic           -- divided (slow) clock
+            );
+        end component clock_divider;
+        
+  -- create wire to floor output to 7SD enable (active-low)
+        signal w_ofloor_7SD : std_logic_vector;
+        signal w_clk : std_logic;		--this wire provides the connection between o_clk and thunderbird clk
+          
 begin
 	-- PORT MAPS ----------------------------------------
-
+elevator_inst : elevator port map (
+             i_clk      => w_clk,
+            i_up_down   => sw(1),
+            i_stop      => sw(0),
+            i_reset     => btnU or btnR
+            );
+uut_inst : sevenSegDecoder port map (
+               i_D     => w_ofloor_7SD, --wire is stdlogicvector??
+               o_S     => seg
+           );
+clkdiv_inst : clock_divider         --instantiation of clock_divider to take 
+                   generic map ( k_DIV => 12500000) -- 1 Hz clock from 100 MHz = 50mill
+                   port map (                          
+                       i_clk   => clk,
+                       i_reset => btnL or btnU,
+                       o_clk   => w_clk
+                   );  
 	
 	
 	-- CONCURRENT STATEMENTS ----------------------------
 	
 	-- LED 15 gets the FSM slow clock signal. The rest are grounded.
-	
+	led(15) <= w_clk;
+	led(14 downto 0) <= (others => '0');
 
 	-- leave unused switches UNCONNECTED. Ignore any warnings this causes.
 	
 	-- wire up active-low 7SD anodes (an) as required
+	an(2)  <= '0';
 	-- Tie any unused anodes to power ('1') to keep them off
+	an(1 downto 0) <= (others => '1');
+	an(3)  <= '1';
 	
 end top_basys3_arch;
