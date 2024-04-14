@@ -120,7 +120,7 @@ component clock_divider is
         end component clock_divider;
         
   -- create wire to floor output to 7SD enable (active-low)
-        signal w_ofloor_7SD : std_logic_vector;
+        signal w_ofloor_7SD : std_logic_vector(3 downto 0);
         signal w_clk : std_logic;		--this wire provides the connection between o_clk and thunderbird clk
           
 begin
