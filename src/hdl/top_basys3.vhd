@@ -92,7 +92,7 @@ end top_basys3;
 architecture top_basys3_arch of top_basys3 is 
   
 	-- declare components and signals
-component elevator is
+component elevator_controller_fsm is
           port(
             i_clk       : in std_logic;
             i_up_down   : in std_logic;
@@ -125,18 +125,19 @@ component clock_divider is
           
 begin
 	-- PORT MAPS ----------------------------------------
-elevator_inst : elevator port map (
+elevator_inst : elevator_controller_fsm port map (
              i_clk      => w_clk,
             i_up_down   => sw(1),
             i_stop      => sw(0),
-            i_reset     => btnU or btnR
+            i_reset     => btnU or btnR,
+            o_floor     => w_ofloor_7SD
             );
 uut_inst : sevenSegDecoder port map (
                i_D     => w_ofloor_7SD, --wire is stdlogicvector??
                o_S     => seg
            );
 clkdiv_inst : clock_divider         --instantiation of clock_divider to take 
-                   generic map ( k_DIV => 12500000) -- 1 Hz clock from 100 MHz = 50mill
+                   generic map ( k_DIV => 50000000) -- 1 Hz clock from 100 MHz = 50mill
                    port map (                          
                        i_clk   => clk,
                        i_reset => btnL or btnU,
