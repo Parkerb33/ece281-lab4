@@ -79,6 +79,7 @@ entity top_basys3 is
         btnU    :   in std_logic; -- master_reset
         btnL    :   in std_logic; -- clk_reset
         btnR    :   in std_logic; -- fsm_reset
+        btnC    :   in std_logic; -- TDM_reset
         
         -- outputs
         led :   out std_logic_vector(15 downto 0);
@@ -98,7 +99,7 @@ component elevator_controller_fsm is
             i_up_down   : in std_logic;
             i_stop      : in std_logic;
             i_reset     : in std_logic;
-            o_floor     : out std_logic_vector (3 downto 0)
+            o_floor     : out std_logic_vector (7 downto 0)
           );
         end component;
         
@@ -119,10 +120,24 @@ component clock_divider is
             );
         end component clock_divider;
         
+component TDM4 is
+            generic ( constant k_WIDTH : natural  := 4); -- bits in input and output
+            Port ( i_clk        : in  STD_LOGIC;
+                   i_reset        : in  STD_LOGIC; -- asynchronous
+                   i_D3         : in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+                   i_D2         : in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+                   i_D1         : in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+                   i_D0         : in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+                   o_data        : out STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+                   o_sel        : out STD_LOGIC_VECTOR (3 downto 0)    -- selected data line (one-cold)
+            );
+        end component TDM4;
+        
   -- create wire to floor output to 7SD enable (active-low)
-        signal w_ofloor_7SD : std_logic_vector(3 downto 0);
+        signal w_TDM : std_logic_vector(7 downto 0);
+        signal w_7seg : std_logic_vector(3 downto 0);
         signal w_clk : std_logic;		--this wire provides the connection between o_clk and thunderbird clk
-          
+        signal w_clk_TDM4 : std_logic; 
 begin
 	-- PORT MAPS ----------------------------------------
 elevator_inst : elevator_controller_fsm port map (
@@ -130,19 +145,39 @@ elevator_inst : elevator_controller_fsm port map (
             i_up_down   => sw(1),
             i_stop      => sw(0),
             i_reset     => btnU or btnR,
-            o_floor     => w_ofloor_7SD
+            o_floor     => w_TDM
             );
 uut_inst : sevenSegDecoder port map (
-               i_D     => w_ofloor_7SD, --wire is stdlogicvector??
+               i_D     => w_7seg, --wire is stdlogicvector??
                o_S     => seg
            );
 clkdiv_inst : clock_divider         --instantiation of clock_divider to take 
-                   generic map ( k_DIV => 50000000) -- 1 Hz clock from 100 MHz = 50mill
-                   port map (                          
-                       i_clk   => clk,
-                       i_reset => btnL or btnU,
-                       o_clk   => w_clk
-                   );  
+           generic map ( k_DIV => 50000000) -- 1 Hz clock from 100 MHz = 50mill
+           port map (                          
+               i_clk   => clk,
+               i_reset => btnL or btnU,
+               o_clk   => w_clk
+           );  
+           
+TDMclkdiv_inst : clock_divider         --instantiation of clock_divider to take 
+                      generic map ( k_DIV => 50000) -- 1 Hz clock from 100 MHz = 50mill
+                      port map (                          
+                          i_clk   => clk,
+                          i_reset => btnC,
+                          o_clk   => w_clk_TDM4
+                      );  
+                   
+tdm_inst : TDM4 --k_WIDTH needs help
+       generic map ( k_WIDTH => 4) -- bits in input and output
+       Port map ( i_clk  => w_clk_TDM4,
+              i_reset   => btnC, -- asynchronous
+              i_D3      => w_TDM(7 downto 4),
+              i_D2      => w_TDM(3 downto 0),
+              i_D1      => "0000",
+              i_D0      => "0000",
+              o_data    => w_7seg,
+              o_sel     => an   -- selected data line (one-cold)
+       );
 	
 	
 	-- CONCURRENT STATEMENTS ----------------------------
@@ -154,9 +189,9 @@ clkdiv_inst : clock_divider         --instantiation of clock_divider to take
 	-- leave unused switches UNCONNECTED. Ignore any warnings this causes.
 	
 	-- wire up active-low 7SD anodes (an) as required
-	an(2)  <= '0';
+--	an(2)  <= '0';
+ --   an(3)  <= '0';
 	-- Tie any unused anodes to power ('1') to keep them off
-	an(1 downto 0) <= (others => '1');
-	an(3)  <= '1';
+--	an(1 downto 0) <= (others => '1');
 	
 end top_basys3_arch;
